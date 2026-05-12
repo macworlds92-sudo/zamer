@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#12122A">
+  <title>Замер</title>
+  <style>
+    :root {
+      --bg: #F2F2F7;
+      --card: #FFFFFF;
+      --dark: #12122A;
+      --accent: #FF6B35;
+      --text: #1C1C1E;
+      --sub: #8E8E93;
+      --border: #E5E5EA;
+      --success: #34C759;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+
+      --mon: #4A90E2;
+      --tue: #27AE60;
+      --wed: #F39C12;
+      --thu: #8E44AD;
+      --fri: #E74C3C;
+      --sat: #16A085;
+      --sun: #95A5A6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── LOADING ─────────────────────────── */
+    #loading {
+      position: fixed; inset: 0;
+      background: var(--dark);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 999; gap: 20px;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: rgba(255,255,255,0.5); font-size: 14px; letter-spacing: 0.02em; }
+
+    /* ─── ERROR ───────────────────────────── */
+    #error-screen {
+      display: none; position: fixed; inset: 0;
+      background: var(--dark);
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; padding: 40px;
+      text-align: center;
+    }
+    #error-screen .err-icon { font-size: 48px; }
+    #error-screen h3 { color: white; font-size: 18px; }
+    #error-screen p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.5; }
+
+    /* ─── HEADER ──────────────────────────── */
+    .header {
+      background: var(--dark);
+      padding: 52px 20px 20px;
+      position: relative;
+    }
+    .header-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      color: white;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .header .work-type {
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .header-address {
+      display: flex; align-items: flex-start; gap: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+    .header-address .pin { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .header-address span { color: rgba(255,255,255,0.85); font-size: 14px; line-height: 1.4; }
+
+    .call-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--accent);
+      color: white;
+      text-decoration: none;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      width: 100%;
+      justify-content: center;
+      transition: opacity 0.15s;
+    }
+    .call-btn:active { opacity: 0.8; }
+    .call-btn svg { flex-shrink: 0; }
+
+    /* ─── MAP ─────────────────────────────── */
+    #map {
+      width: 100%;
+      height: 42vh;
+      min-height: 240px;
+    }
+
+    /* ─── LEGEND ──────────────────────────── */
+    .legend-wrap {
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--sub);
+      font-weight: 500;
+    }
+    .leg-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .leg-star {
+      width: 10px; height: 10px;
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* ─── SECTION ─────────────────────────── */
+    .section {
+      padding: 20px;
+      background: var(--card);
+      margin-top: 10px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--sub);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+
+    /* ─── DAY PICKER ──────────────────────── */
+    .days-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .days-scroll::-webkit-scrollbar { display: none; }
+
+    .day-chip {
+      flex-shrink: 0;
+      scroll-snap-align: start;
+      width: 56px;
+      padding: 10px 6px;
+      border-radius: 14px;
+      border: 2px solid var(--border);
+      background: white;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px;
+      transition: all 0.18s;
+      position: relative;
+      -webkit-user-select: none; user-select: none;
+    }
+    .day-chip:active { transform: scale(0.95); }
+    .day-chip .dn { font-size: 11px; font-weight: 600; color: var(--sub); text-transform: uppercase; }
+    .day-chip .dd { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; }
+    .day-chip .dm { font-size: 11px; color: var(--sub); }
+    .day-chip .event-count {
+      position: absolute; top: 5px; right: 5px;
+      width: 16px; height: 16px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .day-chip.selected {
+      background: var(--dark);
+      border-color: var(--dark);
+    }
+    .day-chip.selected .dn,
+    .day-chip.selected .dd,
+    .day-chip.selected .dm { color: white; }
+    .day-chip.selected .event-count { background: var(--accent); }
+
+    /* ─── TIME GRID ───────────────────────── */
+    #times-section { display: none; }
+
+    .times-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .time-chip {
+      padding: 11px 4px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: white;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--text);
+      -webkit-user-select: none; user-select: none;
+    }
+    .time-chip:active { transform: scale(0.95); }
+    .time-chip.busy {
+      background: var(--bg);
+      color: var(--sub);
+      border-color: var(--border);
+      cursor: not-allowed;
+      font-weight: 400;
+      text-decoration: line-through;
+    }
+    .time-chip.selected {
+      background: var(--dark);
+      border-color: var(--dark);
+      color: white;
+    }
+
+    /* ─── BUSY EVENTS LIST ─────────────────── */
+    .busy-events {
+      margin-top: 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .busy-event {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .busy-event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .busy-event-title { font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .busy-event-time { color: var(--sub); font-size: 12px; flex-shrink: 0; }
+
+    /* ─── CONFIRM BAR ─────────────────────── */
+    .confirm-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(242,242,247,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+    }
+    .confirm-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--dark);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: -0.01em;
+    }
+    .confirm-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .confirm-btn.ready { background: var(--dark); }
+    .confirm-btn.loading { background: var(--sub); }
+    .confirm-btn.done { background: var(--success); }
+    .confirm-btn:not(:disabled):active { transform: scale(0.98); opacity: 0.9; }
+
+    /* ─── TOAST ───────────────────────────── */
+    .toast {
+      position: fixed; top: 16px; left: 16px; right: 16px;
+      padding: 14px 16px; border-radius: 12px;
+      font-size: 14px; font-weight: 500; color: white;
+      z-index: 500;
+      transform: translateY(-80px); opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.err { background: #E74C3C; }
+    .toast.ok { background: var(--success); }
+
+    .spacer { height: 90px; }
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Загрузка замеров...</p>
+</div>
+
+<!-- ERROR -->
+<div id="error-screen">
+  <div class="err-icon">⚠️</div>
+  <h3 id="err-title">Ошибка загрузки</h3>
+  <p id="err-msg"></p>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-badge">Новый замер</div>
+    <h1 id="client-name">—</h1>
+    <div class="work-type" id="work-type"></div>
+    <div class="header-address">
+      <span class="pin">📍</span>
+      <span id="new-address">—</span>
+    </div>
+    <a class="call-btn" id="call-btn" href="#">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+      </svg>
+      <span id="call-label">Позвонить клиенту</span>
+    </a>
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- LEGEND -->
+  <div class="legend-wrap" id="legend"></div>
+
+  <!-- DAY PICKER -->
+  <div class="section">
+    <div class="section-title">Выберите дату</div>
+    <div class="days-scroll" id="days-scroll"></div>
+  </div>
+
+  <!-- TIME PICKER -->
+  <div class="section" id="times-section">
+    <div class="section-title">Выберите время</div>
+    <div class="times-grid" id="times-grid"></div>
+    <div class="busy-events" id="busy-events"></div>
+  </div>
+
+  <div class="spacer"></div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-bar">
+  <button class="confirm-btn" id="confirm-btn" disabled>
+    Выберите дату и время
+  </button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- YANDEX MAPS -->
+<script src="https://api-maps.yandex.ru/2.1/?apikey=410e01be-3123-432f-a0d8-d91da14d8238&lang=ru_RU"></script>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+//  ⚙️  КОНФИГУРАЦИЯ — ЗАПОЛНИ ПЕРЕД ДЕПЛОЕМ
+// ═══════════════════════════════════════════════
+const CFG = {
+  WEBHOOK          : 'https://rehauservice.bitrix24.ru/rest/58/h47icmovuji6sct3/',
+  ENTITY_TYPE_ID   : 160,                        // ID смарт-процесса
+
+  ADDRESS_FIELD    : 'UF_CRM_8_1726683100',     // Адрес объекта
+  DATE_FIELD       : 'UF_CRM_8_1725883975',     // Дата выезда
+  COMMENT_FIELD    : 'UF_CRM_8_1712154778701',  // Комментарий офиса
+  STAGE_ZAMER      : 'DT160_40:CLIENT',
+
+  TIME_START : 9,
+  TIME_END   : 20,
+  DAYS_AHEAD : 14,
+  CITY       : 'Санкт-Петербург',
+};
+
+// ─── ЦВЕТА ДНЯ НЕДЕЛИ ─────────────────────────
+const DAY_COLOR = ['#95A5A6','#4A90E2','#27AE60','#F39C12','#8E44AD','#E74C3C','#16A085'];
+const DAY_RU    = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+const MON_RU    = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+
+// ─── STATE ────────────────────────────────────
+const P = new URLSearchParams(location.search);
+const DEAL_ID = P.get('deal_id');
+const USER_ID  = P.get('user_id');
+
+let deal        = null;
+let zamery      = [];
+let mapInst     = null;
+let selDate     = null;
+let selHour     = null;
+let geocache    = {};
+
+// ═══════════════════════════════════════════════
+//  BITRIX API
+// ═══════════════════════════════════════════════
+async function bx(method, data = {}) {
+  const r = await fetch(CFG.WEBHOOK + method, {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body   : JSON.stringify(data),
+  });
+  if (!r.ok) {
+    let details = '';
+    try { const j = await r.json(); details = j.error_description || j.error || JSON.stringify(j); } catch {}
+    throw new Error(`HTTP ${r.status}: ${details}`);
+  }
+  const j = await r.json();
+  if (j.error) throw new Error(`${j.error}: ${j.error_description || ''}`);
+  return j.result;
+}
+
+async function getDeal(id) {
+  const r = await bx('crm.item.get', { entityTypeId: CFG.ENTITY_TYPE_ID, id });
+  return r.item; // смарт-процесс возвращает { item: {...} }
+}
+
+async function getContact(id) {
+  if (!id) return null;
+  return bx('crm.contact.get', { id });
+}
+
+async function getZamery(userId) {
+  const from = new Date();
+  const to   = new Date();
+  to.setDate(to.getDate() + CFG.DAYS_AHEAD);
+
+  const r = await bx('crm.item.list', {
+    entityTypeId: CFG.ENTITY_TYPE_ID,
+    filter: {
+      assignedById               : userId,
+      stageId                    : CFG.STAGE_ZAMER,
+      [`>=${CFG.DATE_FIELD}`]    : fmtDate(from),
+      [`<=${CFG.DATE_FIELD}`]    : fmtDate(to),
+    },
+    select: ['id', 'title', 'contactId', CFG.ADDRESS_FIELD, CFG.DATE_FIELD],
+    order : { [CFG.DATE_FIELD]: 'ASC' },
+  });
+  return r.items || [];
+}
+
+async function saveDeal(dealId, dt) {
+  return bx('crm.item.update', {
+    entityTypeId: CFG.ENTITY_TYPE_ID,
+    id          : dealId,
+    fields      : {
+      stageId          : CFG.STAGE_ZAMER,
+      [CFG.DATE_FIELD] : fmtDate(dt),
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  GEOCODER
+// ═══════════════════════════════════════════════
+async function geocode(address) {
+  if (!address?.trim()) return null;
+  const key = address.trim();
+  if (geocache[key]) return geocache[key];
+
+  const full = `${CFG.CITY}, ${key}`;
+  try {
+    const url = `https://geocode-maps.yandex.ru/1.x/?apikey=410e01be-3123-432f-a0d8-d91da14d8238&geocode=${encodeURIComponent(full)}&format=json&results=1`;
+    const r    = await fetch(url);
+    const j    = await r.json();
+    const pos  = j.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
+    if (!pos) return null;
+    const [lon, lat] = pos.split(' ').map(Number);
+    geocache[key] = [lat, lon];
+    return [lat, lon];
+  } catch { return null; }
+}
+
+// ═══════════════════════════════════════════════
+//  MAP
+// ═══════════════════════════════════════════════
+function buildMap(center) {
+  mapInst = new ymaps.Map('map', {
+    center  : center || [59.9311, 30.3609],
+    zoom    : 11,
+    controls: ['zoomControl'],
+  }, { suppressMapOpenBlock: true });
+}
+
+function placemark(coords, color, label, balloon) {
+  return new ymaps.Placemark(coords,
+    { balloonContent: balloon },
+    { preset: 'islands#circleIcon', iconColor: color, iconContent: label }
+  );
+}
+
+function starmark(coords, balloon) {
+  return new ymaps.Placemark(coords,
+    { balloonContent: balloon },
+    { preset: 'islands#starIcon', iconColor: '#FF6B35' }
+  );
+}
+
+async function renderMap() {
+  const newAddr  = deal[CFG.ADDRESS_FIELD];
+  const newCoord = await geocode(newAddr);
+
+  buildMap(newCoord);
+
+  const pts = [];
+
+  // Существующие замеры
+  for (const z of zamery) {
+    if (z.id == DEAL_ID) continue;
+    const addr  = z[CFG.ADDRESS_FIELD];
+    if (!addr) continue;
+    const coord = await geocode(addr);
+    if (!coord) continue;
+
+    const dt    = z[CFG.DATE_FIELD] ? new Date(z[CFG.DATE_FIELD]) : null;
+    const dow   = dt ? dt.getDay() : 0;
+    const label = DAY_RU[dow];
+    const color = DAY_COLOR[dow];
+    const time  = dt ? `${dt.getHours()}:00` : '';
+    const tip   = `<b>${z.title}</b><br>${addr}${time ? '<br>' + time : ''}`;
+
+    mapInst.geoObjects.add(placemark(coord, color, label, tip));
+    pts.push(coord);
+  }
+
+  // Новый адрес
+  if (newCoord) {
+    mapInst.geoObjects.add(starmark(newCoord, `<b>Новый замер</b><br>${newAddr}`));
+    pts.push(newCoord);
+  }
+
+  if (pts.length > 1) {
+    mapInst.setBounds(mapInst.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 50 });
+  } else if (newCoord) {
+    mapInst.setCenter(newCoord, 13);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  LEGEND
+// ═══════════════════════════════════════════════
+function renderLegend() {
+  const el   = document.getElementById('legend');
+  const days = new Set();
+
+  zamery.forEach(z => {
+    if (z[CFG.DATE_FIELD] && z.id != DEAL_ID)
+      days.add(new Date(z[CFG.DATE_FIELD]).getDay());
+  });
+
+  days.forEach(d => {
+    el.insertAdjacentHTML('beforeend', `
+      <div class="legend-item">
+        <div class="leg-dot" style="background:${DAY_COLOR[d]}"></div>
+        <span>${DAY_RU[d]}</span>
+      </div>`);
+  });
+
+  el.insertAdjacentHTML('beforeend', `
+    <div class="legend-item">
+      <div class="leg-star"></div>
+      <span>Новый</span>
+    </div>`);
+}
+
+// ═══════════════════════════════════════════════
+//  DAY PICKER
+// ═══════════════════════════════════════════════
+function buildDayMap() {
+  const m = {};
+  zamery.forEach(z => {
+    if (!z[CFG.DATE_FIELD] || z.id == DEAL_ID) return;
+    const k = z[CFG.DATE_FIELD].substring(0, 10);
+    if (!m[k]) m[k] = [];
+    m[k].push(z);
+  });
+  return m;
+}
+
+function renderDays() {
+  const cont   = document.getElementById('days-scroll');
+  const dayMap = buildDayMap();
+
+  for (let i = 0; i < CFG.DAYS_AHEAD; i++) {
+    const d   = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + i);
+
+    const key    = fmtDate(d).substring(0, 10);
+    const count  = dayMap[key]?.length || 0;
+    const dow    = d.getDay();
+
+    const btn = document.createElement('button');
+    btn.className = 'day-chip';
+    btn.dataset.date = key;
+    btn.style.borderColor = count ? DAY_COLOR[dow] : '';
+    btn.innerHTML = `
+      ${count ? `<div class="event-count">${count}</div>` : ''}
+      <span class="dn">${DAY_RU[dow]}</span>
+      <span class="dd">${d.getDate()}</span>
+      <span class="dm">${MON_RU[d.getMonth()]}</span>
+    `;
+    btn.addEventListener('click', () => pickDay(d, btn, dayMap[key] || []));
+    cont.appendChild(btn);
+  }
+}
+
+function pickDay(date, btn, events) {
+  document.querySelectorAll('.day-chip').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selDate = date;
+  selHour = null;
+  updateConfirm();
+  renderTimes(date, events);
+  document.getElementById('times-section').style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════
+//  TIME PICKER
+// ═══════════════════════════════════════════════
+function renderTimes(date, events) {
+  const grid  = document.getElementById('times-grid');
+  const evEl  = document.getElementById('busy-events');
+  grid.innerHTML = '';
+  evEl.innerHTML = '';
+
+  // Занятые слоты
+  const busy = {};
+  events.forEach(z => {
+    if (!z[CFG.DATE_FIELD]) return;
+    const h = new Date(z[CFG.DATE_FIELD]).getHours();
+    busy[h] = z;
+  });
+
+  for (let h = CFG.TIME_START; h <= CFG.TIME_END; h++) {
+    const isBusy = !!busy[h];
+    const btn = document.createElement('button');
+    btn.className = `time-chip${isBusy ? ' busy' : ''}`;
+    btn.disabled  = isBusy;
+    btn.textContent = `${h}:00`;
+    if (!isBusy) btn.addEventListener('click', () => pickTime(h, btn));
+    grid.appendChild(btn);
+  }
+
+  // Список занятых замеров в этот день
+  if (events.length > 0) {
+    const hdr = document.createElement('div');
+    hdr.className = 'section-title';
+    hdr.style.marginTop = '16px';
+    hdr.textContent = 'Уже назначены в этот день';
+    evEl.appendChild(hdr);
+
+    events.forEach(z => {
+      const dt  = z[CFG.DATE_FIELD] ? new Date(z[CFG.DATE_FIELD]) : null;
+      const dow = dt ? dt.getDay() : 0;
+      const t   = dt ? `${dt.getHours()}:00` : '—';
+      const el  = document.createElement('div');
+      el.className = 'busy-event';
+      el.innerHTML = `
+        <div class="busy-event-dot" style="background:${DAY_COLOR[dow]}"></div>
+        <span class="busy-event-title">${z.title}</span>
+        <span class="busy-event-time">${t}</span>
+      `;
+      evEl.appendChild(el);
+    });
+  }
+}
+
+function pickTime(hour, btn) {
+  document.querySelectorAll('.time-chip').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selHour = hour;
+  updateConfirm();
+}
+
+// ═══════════════════════════════════════════════
+//  CONFIRM BUTTON
+// ═══════════════════════════════════════════════
+function updateConfirm() {
+  const btn = document.getElementById('confirm-btn');
+  if (selDate && selHour !== null) {
+    const dow = selDate.getDay();
+    btn.textContent = `Назначить — ${DAY_RU[dow]} ${selDate.getDate()} ${MON_RU[selDate.getMonth()]} в ${selHour}:00`;
+    btn.disabled    = false;
+    btn.className   = 'confirm-btn ready';
+  } else if (selDate) {
+    btn.textContent = 'Выберите время';
+    btn.disabled    = true;
+    btn.className   = 'confirm-btn';
+  } else {
+    btn.textContent = 'Выберите дату и время';
+    btn.disabled    = true;
+    btn.className   = 'confirm-btn';
+  }
+}
+
+document.getElementById('confirm-btn').addEventListener('click', async () => {
+  if (!selDate || selHour === null) return;
+
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled    = true;
+  btn.className   = 'confirm-btn loading';
+  btn.textContent = 'Сохраняю...';
+
+  try {
+    const dt = new Date(selDate);
+    dt.setHours(selHour, 0, 0, 0);
+    await saveDeal(DEAL_ID, dt);
+
+    btn.className   = 'confirm-btn done';
+    btn.textContent = '✓ Замер назначен';
+    toast('Замер назначен! Битрикс обновлён', 'ok');
+  } catch (e) {
+    btn.disabled  = false;
+    btn.className = 'confirm-btn ready';
+    updateConfirm();
+    toast('Ошибка: ' + e.message, 'err');
+  }
+});
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function fmtDate(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast ${type} show`;
+  setTimeout(() => el.className = 'toast', 3500);
+}
+
+function showError(title, msg) {
+  document.getElementById('loading').style.display      = 'none';
+  document.getElementById('error-screen').style.display = 'flex';
+  document.getElementById('err-title').textContent      = title;
+  document.getElementById('err-msg').textContent        = msg;
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+async function init() {
+  if (!DEAL_ID) {
+    showError('Нет ID сделки', 'Добавьте параметр ?deal_id=XXXXX&user_id=YYYYY в URL');
+    return;
+  }
+
+  try {
+    // 1. Данные элемента смарт-процесса
+    deal = await getDeal(DEAL_ID);
+    const userId = USER_ID || deal.assignedById;
+
+    // 2. Контакт (имя + телефон) + замеры — параллельно
+    const [contact, z] = await Promise.all([
+      getContact(deal.contactId),
+      getZamery(userId),
+    ]);
+    zamery = z || [];
+
+    // 3. Шапка
+    const clientName = [contact?.NAME, contact?.LAST_NAME].filter(Boolean).join(' ')
+                    || deal.title
+                    || `#${DEAL_ID}`;
+    document.getElementById('client-name').textContent = clientName;
+    document.getElementById('work-type').textContent   = deal[CFG.COMMENT_FIELD] || '';
+    document.getElementById('new-address').textContent = deal[CFG.ADDRESS_FIELD] || 'Адрес не указан';
+
+    const phone = contact?.PHONE?.[0]?.VALUE;
+    const callBtn = document.getElementById('call-btn');
+    if (phone) {
+      callBtn.href = `tel:${phone}`;
+      document.getElementById('call-label').textContent = phone;
+    } else {
+      callBtn.style.display = 'none';
+    }
+
+    // 4. Карта
+    await new Promise(r => ymaps.ready(r));
+    await renderMap();
+
+    // 5. Легенда + дни
+    renderLegend();
+    renderDays();
+
+    // 6. Показываем приложение
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display     = 'block';
+
+  } catch (e) {
+    showError('Ошибка загрузки', e.message);
+  }
+}
+
+window.addEventListener('load', () => setTimeout(init, 200));
+</script>
+</body>
+</html>
